@@ -1,0 +1,132 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix,classification_report,accuracy_score,r2_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+import warnings
+warnings.filterwarnings('ignore')
+from sklearn.metrics import roc_curve
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.cluster import KMeans
+from sklearn.manifold import TSNE
+
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error,mean_absolute_error
+from sklearn.metrics import zero_one_loss
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import KFold,StratifiedKFold,LeaveOneOut
+import statistics as st
+df = pd.read_csv(r'C:\Users\shrav\Dropbox\My PC (DESKTOP-689769P)\Downloads\diabetes.csv')
+print(df.head())
+df_copy = df.copy(deep = True)
+
+#statistics
+print(df.describe())
+print(df.info)
+print(df.shape)
+print(df.dtypes)
+
+#cleaning and filtering
+print(df_copy.fillna(0))
+print(df_copy.dropna)
+print(df_copy.replace('No',''))
+print(df_copy.isnull().sum())
+
+#counting
+print(df.values)
+
+p = df.hist(figsize=(10,10))
+#Before removing Nan values
+plt.show()
+
+#after removing Nan values
+df['Glucose'].fillna(df['Glucose'].mean(),inplace=True)
+df['BloodPressure'].fillna(df['BloodPressure'].mean(),inplace=True)
+q = df.hist(figsize = (20,20))
+# plt.show()
+
+
+#pairplot for clean data
+# p = sns.pairplot(df_copy,hue='Outcome')
+# plt.show()
+
+#heatmap for unclean data
+# plt.figure(figsize=(12,10))
+# p = sns.heatmap(df.corr(),annot=True)
+
+#heatmap for unclean data
+# plt.figure(figsize=(12,10))
+# p = sns.heatmap(df_copy.corr(),annot=True)
+
+#scaling data (z = (Xi-mew)/sigma)
+
+m1 = StandardScaler()
+x =  pd.DataFrame(m1.fit_transform(df_copy.drop(["Outcome"],axis = 1),),
+        columns=['Pregnancies', 'Glucose', 'BloodPressure', 'SkinThickness', 'Insulin',
+       'BMI', 'DiabetesPedigreeFunction', 'Age'])
+print(x.head())
+y = df_copy.Outcome
+
+x_train,x_test,y_train,y_test =  train_test_split(x,y,test_size=0.33,random_state=42)
+
+def gen_cls_matrix(y_test,ypred):
+    cm = confusion_matrix(y_test,ypred)
+    cl = classification_report(y_test,ypred)
+    print(cm)
+    print(cl)
+def score(model):
+    print('training score',model.score(x_train,y_train))
+    print('testing score',model.score(x_test,y_test))
+
+test_scores = []
+train_scores = []
+for i in range(1,15):
+    knn = KNeighborsClassifier(i)
+    knn.fit(x_train,y_train)
+
+    train_scores.append(knn.score(x_train,y_train))
+    test_scores.append(knn.score(x_test,y_test))
+
+max_train_score = max(train_scores)
+train_scores_ind = [i for i, v in enumerate(train_scores) if v == max_train_score]
+print('Max train score {} % and k = {}'.format(max_train_score*100,list(map(lambda x: x+1, train_scores_ind))))
+#Max train score 100.0 % and k = [1]
+
+max_test_score = max(test_scores)
+test_scores_ind = [i for i, v in enumerate(test_scores) if v == max_test_score]
+print('Max test score {} % and k = {}'.format(max_test_score*100,list(map(lambda x: x+1, test_scores_ind))))
+# Max test score 76.5625 % and k = [11]
+
+#result visualization
+plt.figure(figsize=(12,5))
+p = sns.lineplot(range(1,15),train_scores,marker='*',label='train_score')
+p = sns.lineplot(range(1,15),test_scores,marker='*',label='test_score')
+plt.show()
+# The best result is captured at k = 11 hence 11 is used for the final model
+
+#model performance analysis
+knn = KNeighborsClassifier(11)#k = 11 as k is highest in test score
+knn.fit(x_train,y_train)
+score(knn)
+y_pred = knn.predict(x_test)
+gen_cls_matrix(y_test,y_pred)
+
+
+# ROC - AUC
+# ROC Curve tells us about how good the model can distinguish between two things (e.g If a patient has a disease or no)
+
+y_pred_proba = knn.predict_proba(x_test)[:,1]
+fpr , tpr ,thresholds = roc_curve(y_test,y_pred_proba)
+
+plt.plot([0,1],[0,1],'k--')
+plt.plot(fpr,tpr,label='KNN')
+plt.xlabel('fpr')
+plt.ylabel('tpr')
+plt.title('KNN(n_neighbours=11) ROC curve')
+plt.show()
